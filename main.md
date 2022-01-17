@@ -126,6 +126,34 @@ When spending an input using this sighash the spender is saying "I'm OK with spe
 
 ## The Bug
 
+Now we know what is a sighash and what are the six types of sighashes it's time to share the bug with you.
+The issue lies within the definition of `SIGHASH_SINGLE` and `SIGHASH_SINGLE | SIGHASH_ANYONECANPAY`.
+Specifically, both sighash types sign a signle output with the matching index as the index of the input for which this sighash mode is specified.
+But what if no such output exists?
+What do we hash in that case?
+Well, this is a great question so please first stop and try to think what you might have expected to happen in such a scenario.
+While you have probably thought of either forbidding such transactions to be mined (as part of Bitcoin's concensus rules) or simply interpret the sighash type as `SIGHASH_NONE` or `SIGHASH_NONE | SIGHASH_ANYONECANPAY`, hereby signing only on the inputs, neither of these is what actually happening.
+What happens is, the signature simply signs the hash of the 256-bit little-endian number "0000...0001", which we will simply call "1" for the sake of brevity.
+That is, while typically messages are hashed and signed, in this case no message is provided and the signing algorithm is directly given the said value of "1".
+Can you think of any meaningful implication for this?
+
+### So what?
+
+The most prominent implication of this behavior, is that if an attacker manages to obtain, by any mean, the signature of "1" from your private key, he will immediately gain indefinite access to your account.
+In other words, if you publish a signature on the hash value "1", you can kiss goodbye to all your funds from the associated address.
+Why is that?
+How can this be exploited?
+If you publish a signature on hash "1" using the secret key associated with your Bitcoin address, the attacker can take this signature, stick it in the `scriptSig` field of an input with sighash type of `SIGHASH_SINGLE` and place this input as the second input in a transaction with two inputs, where the first input would be any UTXO owned by the attacker which the attacker can spend.
+The single output of this transaction will be destined to the attacker with all value from both inputs (his own input and the victim's input) sent to him.
+Let's visualize the attack and examplify it, consider we have a victim with some UTXO owned by him with value of `Y` satoshis and we have a signature of the victim on the hash value "1".
+On the side there's an Attacker with a UTXO owned by him with value of `X` satoshis.
+The "ingredient" for the attack, therefore, would look like this:
+
+![](images/attack_input.jpg)
+
+The attacker, using his private key and these inputs will create the following transaction:
+
+
 ## Did Satoshi Really Create This Bug?
 
 Yes, this bug was created by no other than the legendary Satoshi Nakamoto, go ahead and look at it yourself.
@@ -161,3 +189,5 @@ bool CheckSig(vector<unsigned char> vchSig, vector<unsigned char> vchPubKey, CSc
 
 So as part of the signature checking the code was calling the `SignatureHash` function and sent its output value directly to the `key.Verify` function without checking for the error code.
 Because of this bug, the consensus of Bitcoin allows for inputs signed with SIGHASH_SINGLE to be the ECDSA signature with the private key on the hash of the 256-bit value of 1.
+
+## Mitigations
