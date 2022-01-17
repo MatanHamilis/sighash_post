@@ -49,7 +49,7 @@ With all given information, the following is a schematic format of the transacti
 Let's have an example, consider Alice has 1 BTC she received at transaction with txid `ab01...0342` (we'll be using abbrivated notation instead of writing a long transaction ID).
 Thus, this transaction has a single output worth 1 BTC which can only be spent using Alice's private key.
 Alice wants to send this 1 BTC to Bob.
-To do so, she asks from Bob for it's addres which encompoasses Bob's public key.
+To do so, she asks from Bob for his addres which encompoasses Bob's public key.
 Next, she creates a transaction with a single input, referring to the first out output from transaction previous transaction (so `vout = 0` and `txid = ab01...0342`), she computes her signature using her private key this input, thereby authorizing the payment and attaches it to the `scriptSig` field in the input.
 In the output of the transaction she creates a single output with `value = 100,000,000`, which are 100,000,000 satoshis, that is single BTC and is writing Bob's public key in the `scriptPubkey` field.
 
