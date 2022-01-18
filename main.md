@@ -34,13 +34,12 @@ This puzzle is specified under the hood using a "programing language" dedicated 
 You can find further information about Bitcoin script [here](https://en.bitcoin.it/wiki/Script).
 
 Great, now let's move to the inputs.
-An input contains the following five fields:
+An input contains the following four fields:
 
 1. `txid`, the hash of the transaction which contains the output were are spending in this input.
 1. `vout`, the transaction with hash `txid` may contain multiple outputs, this field specifies which of the outputs of that transaction are we spending in this input.
 1. `scriptSig`, the solution to the puzzle of the output being spent, which typically includes a digital signature.
 1. `sequence`, used for RBF signalling, irrelevant for this article.
-1. `witness`, another more efficient way to solve the puzzle which we'll not get into in this article.
 
 With all given information, the following is a schematic format of the transaction:
 
