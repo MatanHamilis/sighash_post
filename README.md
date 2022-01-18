@@ -78,6 +78,7 @@ In the following we present all sighash types accompanies with a visual of the s
 ### SIGHASH_ALL
 
 The first sighash type is `SIGHASH_ALL` in which the all inputs and all outputs of the transaction are signed.
+Almost all signatures in the blockchain of Bitcoin are accompanied with this kind of sighash type.
 
 ![Sighash all](images/sighash_all.jpg)
 
@@ -86,6 +87,11 @@ The first sighash type is `SIGHASH_ALL` in which the all inputs and all outputs 
 In this sighash type all outputs are signed but the `SIGHASH_ANYONECANPAY` signifies that only one of the inputs is signed, that is the input for which this sighash type is specified in.
 This means, as its name suggests that anyone else who has this transaction can join and add inputs to this transaction as long as it preserves the same outputs that are signed.
 In other words, since the spender isn't signing other inputs except his own input, anyone else can take this transaction and modify it by adding another input as long as he doesn't modify the outputs that are provided with the original transaction.
+
+Consider the following scenario, you and three other friends would like to buy a gift to another friend for her birthday.
+The gift costs 10000 satoshis which should be sent to the address of the merchant and you have decided to split the payment evenly, so each one of you pays 2500 satoshis.
+To accomplish the payment, you and your friends will sign (separately) the spending of a UTXO with 2500 satoshis where which will be sent to the merchant (as the first output). Notice that the output will contain the value of `10000` despite each friend signs only an input of 2500.
+By merging these signed inputs you can create a valid transaction and send it to the merchant.
 
 ![Sighash all | Sighash Anyonecanpay](images/sighash_all_anyonecanpay.jpg)
 
@@ -151,6 +157,19 @@ The "ingredient" for the attack, therefore, would look like this:
 
 The attacker, using his private key and these inputs will create the following transaction:
 
+![attack transaction](images/attack_tx.jpg)
+
+Pay extra attention to the following details:
+
+1. The attacker spends the victim's UTXO using **SIGHASH_SINGLE**. Therefore when any other node will verify if this transaction is valid it will check that the signature inside the scriptSig is valid.
+1. To check if this scriptSig is valid it has to compute the hash according to the sighash type, which is `SIGHASH_SINGLE`, that means it will have all inputs and the single matching output.
+1. Since there is no matching output, any node verifying the tx is programmed to look for the signature on the hash value of "1".
+1. Since the attacker already has the signature on (from any other source) he can simply use this signature to spend any UTXO owned by the victim.
+1. The **second** input refers to a UTXO owned by the victim. If the first was referring the attack wouldn't have worked. That is because in that case the nodes would expect the signature the be on the hash of all inputs and the second output.
+1. The value of the output is X+Y, i.e. the sum of the values of the UTXOs spent in the transaction.
+
+This is it, that is the actual bug and that's how it can be exploited.
+
 ## Did Satoshi Really Create This Bug?
 
 Yes, this bug was created by no other than the legendary Satoshi Nakamoto, go ahead and look at it yourself.
@@ -187,4 +206,10 @@ bool CheckSig(vector<unsigned char> vchSig, vector<unsigned char> vchPubKey, CSc
 So as part of the signature checking the code was calling the `SignatureHash` function and sent its output value directly to the `key.Verify` function without checking for the error code.
 Because of this bug, the consensus of Bitcoin allows for inputs signed with SIGHASH_SINGLE to be the ECDSA signature with the private key on the hash of the 256-bit value of 1.
 
-## Mitigations
+## Mitigation
+
+To prevent users from accidentally triggering this bug, thereby publishing a signature on the hash value of "1", the first thing that happened was that Bitcoin-core's code prevents the user from signing such transactions as written in the code [here](https://github.com/bitcoin/bitcoin/blob/c561f2f06ed25f08f7776ac41aeb2999ebe79550/src/script/sign.cpp#L657).
+Taproot addresses, introduced in [BIP-341](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki) as part of the taproot upgrade, can't create signature with `SIGHASH_SINGLE` such and without a matching output as this will invalidate such transactions.
+
+## Some Tools
+I've written a tool called `bitcoin-scan-sighash` which can connect to a local instance of a bitcoin-core node and scan the blockchain for such instances, you can check the repo [here](https://github.com/MatanHamilis/bitcoin-sighash-scan)
