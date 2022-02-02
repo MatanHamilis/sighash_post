@@ -29,7 +29,7 @@ An output of transaction contains the following two attributes:
 1. `scriptPubkey`, who can spend the coins in this output.
 
 While the `value` attribute is easy to grasp, you can think of the `scriptPubkey` attribute as a puzzle that whoever wants to spend this output has to solve.
-When you're sending some coins to your friend, she gives you her Bitcoin address, this address is directly decoded in this `scriptPubkey` address, so your Bitcoin wallet will specify in the output a puzzle that only your friend can solve, using her private key.
+When you're sending some coins to your friend, your friend gives you a Bitcoin address, this address is directly decoded in this `scriptPubkey` address, so your Bitcoin wallet will specify in the output a puzzle that only your friend can solve, using a private key.
 This puzzle is specified under the hood using a "programing language" dedicated to Bitcoin call "script".
 You can find further information about Bitcoin script [here](https://en.bitcoin.it/wiki/Script).
 
@@ -45,23 +45,23 @@ With all given information, the following is a schematic format of the transacti
 
 ![Transaction Format](./images/tx_form.jpg)
 
-Let's have an example, consider Alice has 1 BTC she received at transaction with txid `ab01...0342` (we'll be using abbreviated notation instead of writing a long transaction ID).
-Thus, this transaction has a single output worth 1 BTC which can only be spent using Alice's private key.
-Alice wants to send this 1 BTC to Bob.
-To do so, she asks from Bob for his address which encompasses Bob's public key.
-Next, she creates a transaction with a single input, referring to the first out output from transaction previous transaction (so `vout = 0` and `txid = ab01...0342`), she computes her signature using her private key this input, thereby authorizing the payment and attaches it to the `scriptSig` field in the input.
-In the output of the transaction she creates a single output with `value = 100,000,000`, which are 100,000,000 satoshis, that is single BTC and is writing Bob's public key in the `scriptPubkey` field.
+Let's have an example, consider an address has 1 BTC which were received at transaction with txid `ab01...0342` (we'll be using abbreviated notation instead of writing a long transaction ID).
+Thus, this transaction has a single output worth 1 BTC which can only be spent using the address' private key.
+The owner of the address (called A) wants to send this 1 BTC to someone else, called B.
+To do so, A asks from B for the address which encompasses B's public key.
+Next, A creates a transaction with a single input, referring to the first out output from previous transaction (so `vout = 0` and `txid = ab01...0342`), A computes the signature using A's private key, thereby authorizing the payment and attaches it to the `scriptSig` field in the input.
+In the output of the transaction A creates a single output with `value = 100,000,000`, which are 100,000,000 satoshis, that is single BTC and is writing B's public key in the `scriptPubkey` field.
 
 The result transaction, ignoring irrelevant fields looks something like this:
 
 ![Example Transaction](./images/example_tx.jpg)
 
 Now that we know roughly how transactions work, let's get a little bit deeper into the `scriptSig` field.
-In our previous example Alice was computing a signature of the transaction she was sending to Bob.
+In our previous example A was computing a signature of the transaction the was sent to B.
 Digital signatures (such as ECDSA signatures used in Bitcoin) are considered hard to forge without owning the private key.
-That means that without the private key an attacker using Alice's previous signatures will not be able to generate a new signature authorizing the spending of one of her UTXOs.
+That means that without the private key an attacker using A's previous signatures will not be able to generate a new signature authorizing the spending of one of A's UTXOs.
 When computing a digital signature, the signing procedure typically takes an arbitrarily sized buffer, compute the hash of the contents of this buffer and employ the mathematical procedure on the hash of the message.
-So, when Alice is computing the digital signature, what exactly is this buffer that will be passed into the signing procedure?
+So, when A is computing the digital signature, what exactly is this buffer that will be passed into the signing procedure?
 The most common case is that all contents of the transaction (besides the signature itself, of course) are signed, this is probably what you would expect and even implement your self if you were trying to write your own version of Bitcoin.
 However, in Bitcoin other modes are available which allow the spender to sign only part of the information in the transaction to allow higher degrees of freedom and perhaps more sophisticated use cases.
 The exact mode comes right after the digital signature in the `scriptSig` field and is encoded using a single byte known as a `SIGHASH_TYPE`.
@@ -86,11 +86,11 @@ Almost all signatures in the blockchain of Bitcoin are accompanied with this kin
 
 In this sighash type all outputs are signed but the `SIGHASH_ANYONECANPAY` signifies that only one of the inputs is signed, that is the input for which this sighash type is specified in.
 This means, as its name suggests that anyone else who has this transaction can join and add inputs to this transaction as long as it preserves the same outputs that are signed.
-In other words, since the spender isn't signing other inputs except his own input, anyone else can take this transaction and modify it by adding another input as long as he doesn't modify the outputs that are provided with the original transaction.
+In other words, since the spender isn't signing other inputs (besides the one being currently dealt with), anyone else can take this transaction and modify it by adding another input as long as the outputs that are provided with the original transaction aren't modified.
 
-Consider the following scenario, you and three other friends would like to buy a gift to another friend for her birthday.
+Consider the following scenario, you and three other friends would like to buy a gift to another friend.
 The gift costs 10000 satoshis which should be sent to the address of the merchant and you have decided to split the payment evenly, so each one of you pays 2500 satoshis.
-To accomplish the payment, you and your friends will sign (separately) the spending of a UTXO with 2500 satoshis where which will be sent to the merchant (as the first output). Notice that the output will contain the value of `10000` despite each friend signs only an input of 2500.
+To accomplish the payment, you and your friends will sign (separately) the spending of a UTXO with 2500 satoshis which will be sent to the merchant (as the first output). Notice that the output will contain the value of `10000` despite each friend signs only an input of 2500.
 By merging these signed inputs you can create a valid transaction and send it to the merchant.
 
 ![Sighash all | Sighash Anyonecanpay](images/sighash_all_anyonecanpay.jpg)
@@ -105,8 +105,8 @@ Therefore, when signing an input using this sighash type, the spender is saying 
 ### SIGHASH_NONE | SIGHASH_ANYONECANPAY
 
 In this sighash type none of the outputs is signed and only the input being spent is signed.
-Therefore, when signing an input using this sighash type, the spender is say "I'm OK with spending this input and I really don't care what will eventually happen with it".
-Anyone who receives such an input can take it and spend it in any way the see fit. This is because the sighash doesn't apply and constraints on any other input or output in the transaction.
+Therefore, when signing an input using this sighash type, the spender is saying "I'm OK with spending this input and I really don't care what will eventually happen with it".
+Anyone who receives such an input can take it and spend it in any way they see fit. This is because the sighash doesn't apply any constraints on any other input or output in the transaction.
 What you may expect to happen eventually is that the miner who sees a transaction containing such a sighash type, to take the input to himself.
 
 ![Sighash None | Sighash Anyonecanpay](images/sighash_none_anyonecanpay.jpg)
@@ -114,8 +114,8 @@ What you may expect to happen eventually is that the miner who sees a transactio
 ### SIGHASH_SINGLE
 
 In this sighash type all inputs are signed and only one output is signed.
-Namely, if we are trying to spend input number 2 (therefore, computing the `scriptSig` for that input), we will sig on the output with the matching index, in our case that would be output number 2.
-When spending such an input the spender is say "I'm OK with spending this input in any transaction who contains this specific output and as long as all other inputs who I'm signing on are also taking part in the transaction".
+Namely, if we are trying to spend input number 2 (therefore, computing the `scriptSig` for that input), we will sign the output with the matching index, in our case that would be output number 2.
+When spending such an input the spender is saying "I'm OK with spending this input in any transaction who contains this specific output and as long as all other inputs who I'm signing on are also taking part in the transaction".
 The other parties signing the rest of the inputs can add outputs to the transaction as they see fit, as long as the value of all outputs isn't above the value of all inputs, of course.
 
 ![Sighash Single](images/sighash_single.jpg)
@@ -143,19 +143,19 @@ Can you think of any meaningful implication for this?
 
 ### So what?
 
-The most prominent implication of this behavior, is that if an attacker manages to obtain, by any mean, the signature of "1" from your private key, he will immediately gain indefinite access to your account.
-In other words, if you publish a signature on the hash value "1", you can kiss goodbye to all your funds from the associated address.
+The most prominent implication of this behavior, is that if an attacker manages to obtain, by any mean, the signature of "1" from your private key, the attacker will immediately gain indefinite access to your account.
+In other words, if you publish a signature on the hash value "1", you can kiss goodbye all your funds from the associated address. This relates both to funds that currently are encumbered to the address and that will be encumbered to it in the future.
 Why is that?
 How can this be exploited?
 If you publish a signature on hash "1" using the secret key associated with your Bitcoin address, the attacker can take this signature, stick it in the `scriptSig` field of an input with sighash type of `SIGHASH_SINGLE` and place this input as the second input in a transaction with two inputs, where the first input would be any UTXO owned by the attacker which the attacker can spend.
-The single output of this transaction will be destined to the attacker with all value from both inputs (his own input and the victim's input) sent to him.
+The single output of this transaction will be destined to the attacker with all value from both inputs (the attacker's own input and the victim's input) sent to him.
 Let's visualize the attack and exemplify it, consider we have a victim with some UTXO owned by him with value of `Y` satoshis and we have a signature of the victim on the hash value "1".
 On the side there's an Attacker with a UTXO owned by him with value of `X` satoshis.
 The "ingredient" for the attack, therefore, would look like this:
 
 ![attack input](images/attack_input.jpg)
 
-The attacker, using his private key and these inputs will create the following transaction:
+The attacker, using the attacker's private key and these inputs will create the following transaction:
 
 ![attack transaction](images/attack_tx.jpg)
 
@@ -164,7 +164,7 @@ Pay extra attention to the following details:
 1. The attacker spends the victim's UTXO using **SIGHASH_SINGLE**. Therefore when any other node will verify if this transaction is valid it will check that the signature inside the scriptSig is valid.
 1. To check if this scriptSig is valid it has to compute the hash according to the sighash type, which is `SIGHASH_SINGLE`, that means it will have all inputs and the single matching output.
 1. Since there is no matching output, any node verifying the tx is programmed to look for the signature on the hash value of "1".
-1. Since the attacker already has the signature on (from any other source) he can simply use this signature to spend any UTXO owned by the victim.
+1. Since the attacker already has the signature (from any other source) the attacker can simply use this signature to spend any UTXO owned by the victim.
 1. The **second** input refers to a UTXO owned by the victim. If the first was referring the attack wouldn't have worked. That is because in that case the nodes would expect the signature the be on the hash of all inputs and the second output.
 1. The value of the output is X+Y, i.e. the sum of the values of the UTXOs spent in the transaction.
 
@@ -210,6 +210,8 @@ Because of this bug, the consensus of Bitcoin allows for inputs signed with SIGH
 
 To prevent users from accidentally triggering this bug, thereby publishing a signature on the hash value of "1", the first thing that happened was that Bitcoin-core's code prevents the user from signing such transactions as written in the code [here](https://github.com/bitcoin/bitcoin/blob/c561f2f06ed25f08f7776ac41aeb2999ebe79550/src/script/sign.cpp#L657).
 Taproot addresses, introduced in [BIP-341](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki) as part of the taproot upgrade, can't create signature with `SIGHASH_SINGLE` such and without a matching output as this will invalidate such transactions.
+
+With that being said, regular 'P2PKH' are still vulnerable to this bug as of 2022 with no solution in sight besides upgrading to a Taproot address.
 
 ## Some Tools
 I've written a tool called `bitcoin-scan-sighash` which can connect to a local instance of a bitcoin-core node and scan the blockchain for such instances, you can check the repo [here](https://github.com/ZenGo-X/bitcoin-sighash-scan).
